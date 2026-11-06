@@ -1,0 +1,7 @@
+ord,rfmo,stock,area,msy,r,K,m,f_ratio,note
+1,ICCAT,Blue shark,North,32689,0.30,435853.33,2,0.70,"Published MSY 32,689 t and F/FMSY 0.70. The summary has no absolute FMSY, so r starts at 0.30 and K is set so a Schaefer peak equals that MSY."
+2,ICCAT,Blue shark,South,27711,0.30,369480,2,1.03,"Published MSY 27,711 t and F/FMSY 1.03. r and K are set so a Schaefer peak equals that MSY."
+3,ICCAT,Shortfin mako,North,1883,0.10,75320,2,0.72,"Published MSY 1,883 t and F/FMSY 0.72. r starts lower than blue shark, and K is set so a Schaefer peak equals that MSY."
+4,ICCAT,Shortfin mako,South,1648,0.10,65920,2,1.05,"Published MSY 1,648 t and F/FMSY 1.05. r and K are set so a Schaefer peak equals that MSY."
+5,IOTC,Blue shark,Indian Ocean,30810,0.36,342333.33,2,0.39,"Published MSY about 30,810 t and FMSY 0.18, so r starts at 0.36. F/FMSY starts at 0.39."
+6,IOTC,Shortfin mako,Indian Ocean,1930,0.06,128666.67,2,1.53,"Published MSY about 1,930 t and FMSY 0.03, so r starts at 0.06. F/FMSY starts at 1.53."

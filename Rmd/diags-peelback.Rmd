@@ -1,0 +1,194 @@
+---
+title: "Peel-back diagnostics"
+subtitle: "Retrospective, hindcast, and backtest. Companion to three-strand diagnostics."
+output:
+  html_document:
+    toc: true
+    toc_depth: 2
+---
+
+# Purpose
+
+Three procedures all withhold recent data and re-run the assessment. They answer different questions. Mixing them up is a common review error.
+
+Source: peel-back section of `C:/work/papers/04_ideas/3diags/3diagsV4.tex`.
+
+| Procedure | Quantity scored | Reference | Failure mode |
+|:---|:---|:---|:---|
+| **Retrospective** | Latent states (SSB, F, R) | Full-data estimates | Internal inconsistency as years are added |
+| **Hindcast** | Observable indices / CPUE | Withheld observations | No prediction skill (External) |
+| **Backtest** | Full management strategy | Management objectives | Strategy fails closed-loop (Robustness of advice) |
+
+# Change this block
+
+```{r inputs}
+# Which peel-back story to walk:
+#   "retrospective"  Mohn's rho; within-model peels
+#   "hindcast"       MASE vs persistence; withheld index years
+#   "backtest"       assessment + HCR replayed on history
+# Course link:
+#   "blue_shark"     catch series / green cell story
+#   "shortfin_mako"  ensemble projections and risk tolerance
+
+procedure <- "hindcast"
+```
+
+```{r catalogue, echo=FALSE}
+catalogue <- list(
+  retrospective = list(
+    label = "Within-model retrospective",
+    strand = "Internal (consistency of estimates over peels)",
+    do = c(
+      "Refit ending in Y, Y-1, …, Y-n with everything else fixed",
+      "Compare terminal-year estimates from each peel to the same year in the full run",
+      "Summarise with Mohn's rho; investigate |rho| > ~0.20 (long-lived) or ~0.30 (short-lived)"
+    ),
+    not = c(
+      "Not a historical retrospective of successive published assessments (those confound data, model, and team)",
+      "A low rho is necessary but not sufficient: the model can be internally consistent and still wrong"
+    ),
+    mse = "Persistent patterns should be reproducible in the OM if the assessment is used inside an MP.",
+    leave_with = "rho and the pattern for SSB and F. State whether the pattern would change the advice."
+  ),
+  hindcast = list(
+    label = "Hindcast cross-validation",
+    strand = "External (prediction skill on observables)",
+    do = c(
+      "For each peel, refit to data up to Y-p and predict withheld index/CPUE years",
+      "Score with MASE against a naive persistence forecast",
+      "MASE < 1: useful skill; MASE ≥ 1: no better than persistence"
+    ),
+    not = c(
+      "Not the same as residual plots on fitted years",
+      "Not a test of latent SSB against itself"
+    ),
+    mse = "If the assessment cannot hindcast the data stream the MP will see, the OM/observation model is a weak basis for claiming robustness.",
+    leave_with = "MASE by index. Name the series with no skill."
+  ),
+  backtest = list(
+    label = "Backtesting the management strategy",
+    strand = "Robustness of the full advice loop",
+    do = c(
+      "Year by year: assess with only then-available data, apply the HCR, implement catch, step forward",
+      "Score P(SSB < Blim), P(F > FMSY), mean yield, advice stability",
+      "Use the same objectives as the MSE"
+    ),
+    not = c(
+      "Not only re-fitting the assessment: the HCR and implementation are part of the test",
+      "Not a substitute for a designed MSE, but the empirical counterpart on history"
+    ),
+    mse = "Backtesting is closed-loop on history; MSE is closed-loop on an OM. Both ask whether the strategy meets objectives.",
+    leave_with = "Whether the candidate strategy would have met the risk tolerance on the historical path."
+  ),
+  blue_shark = list(
+    label = "IOTC blue shark — which peel-back matters",
+    strand = "External scale of catch + Robustness of 'no increase'",
+    do = c(
+      "Internal: residual and retrospective checks on the SS3 base case",
+      "External: hindcast CPUE; confront nominal vs reconstructed catch as independent scale evidence",
+      "Robustness: projections under catch multipliers on the reconstructed series"
+    ),
+    not = c(
+      "Do not treat the green cell as validation of the catch history",
+      "Do not call residual agreement a hindcast"
+    ),
+    mse = "Advice is precautionary because of catch-series uncertainty, not because Internal diagnostics failed.",
+    leave_with = "Sentence: green status, advice driven by which catch series, which peel-back would move it."
+  ),
+  shortfin_mako = list(
+    label = "IOTC shortfin mako — ensemble as robustness",
+    strand = "Robustness (weight of evidence) + External (discards / PRM)",
+    do = c(
+      "Internal: residuals per ensemble member",
+      "External: dead discards and post-release mortality in the catch currency",
+      "Robustness: nine-model cloud; P(green in 10 years) at 1,217 t with stated risk tolerance"
+    ),
+    not = c(
+      "Do not report only the median cell when ~half the ensemble disagrees",
+      "Do not treat a projection that omits discards as the same backtest"
+    ),
+    mse = "The catch limit is a total-mortality strategy. Backtests and projections must use that currency.",
+    leave_with = "Risk tolerance, catch currency (landings vs total deaths), and ensemble weight in the red cell."
+  )
+)
+
+if (!procedure %in% names(catalogue)) {
+  stop("procedure must be one of: ", paste(names(catalogue), collapse = ", "))
+}
+ex <- catalogue[[procedure]]
+```
+
+# 1. The procedure you selected
+
+```{r show, echo=FALSE}
+knitr::kable(
+  data.frame(
+    Item = c("Procedure", "Strand", "They leave with"),
+    Value = c(ex$label, ex$strand, ex$leave_with)
+  ),
+  col.names = c("Item", "Value")
+)
+```
+
+## Do
+
+```{r do, echo=FALSE}
+knitr::kable(data.frame(Do = ex$do), col.names = "Do")
+```
+
+## Do not confuse with
+
+```{r not, echo=FALSE}
+knitr::kable(data.frame(`Do not` = ex$not), col.names = "Do not")
+```
+
+**MSE link.** `r ex$mse`
+
+# 2. Place each peel-back on the three strands
+
+```{r map, echo=FALSE}
+knitr::kable(
+  data.frame(
+    Procedure = c("Retrospective", "Hindcast", "Backtest"),
+    Strand = c("Internal", "External", "Robustness"),
+    Score = c(
+      "Mohn's rho; peel pattern for SSB, F",
+      "MASE (or equivalent) on withheld indices",
+      "Objective metrics under the HCR on history"
+    ),
+    stringsAsFactors = FALSE
+  )
+)
+```
+
+Self-test (simulate from the fitted model, refit) stays under **Internal**. It is not a substitute for hindcast or backtest.
+
+# 3. Your case
+
+```{r their-case}
+their_stock <- "type the stock name"
+have_retro  <- "missing"   # pass | partial | fail | missing
+have_hindcast <- "missing"
+have_backtest <- "missing"
+which_moves_advice <- "retro / hindcast / backtest / none yet"
+```
+
+```{r their-table, echo=FALSE}
+knitr::kable(
+  data.frame(
+    Item = c(
+      "Stock", "Retrospective", "Hindcast", "Backtest",
+      "Which would move the advice"
+    ),
+    Value = c(
+      their_stock, have_retro, have_hindcast, have_backtest,
+      which_moves_advice
+    )
+  ),
+  col.names = c("Item", "Value")
+)
+```
+
+Knit once with `procedure <- "retrospective"`, once with `"hindcast"`, once with `"backtest"`. Then set `procedure` to `blue_shark` or `shortfin_mako` and fill section 3.
+
+Someone without a case uses `shortfin_mako`: retrospective often partial, hindcast often missing in the summary, backtest/projection present as the 10-year green probability at 1,217 t.

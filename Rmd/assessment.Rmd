@@ -1,0 +1,231 @@
+---
+title: "What an IOTC assessment involves"
+subtitle: "SS3 generates the data. JABBA and FLICC fit it."
+output:
+  html_document:
+    toc: true
+---
+
+The class does not fit SS3. The 2025 blue shark assessment is the operating model, and its status is known. Catch, an index and lengths are sampled from that run. JABBA is fitted to the catch and the index. FLICC is fitted to the lengths. Each result is scored against the SS3 status it came from.
+
+The points below are the published IOTC summaries. They are the Kobe framework those fits are written in. Blue shark is the operating-model truth. Shortfin mako is a published JABBA assessment, so the ensemble cloud is visible. It is not a sample from the blue shark run. The other six sharks have no point: there is no catch, index or length series to draw.
+
+```{r inputs}
+sample <- "catch and index"
+```
+
+```{r stocks, echo=FALSE}
+stocks <- data.frame(
+  stock = c(
+    "Blue shark", "Shortfin mako", "Silky shark", "Oceanic whitetip",
+    "Scalloped hammerhead", "Bigeye thresher", "Pelagic thresher", "Porbeagle"
+  ),
+  tier = c(
+    "Data-rich", "Data-moderate", "Data-limited", "Data-limited",
+    "Data-limited", "Data-limited", "Data-limited", "Data-limited"
+  ),
+  method = c(
+    "SS3", "JABBA", "ERA", "ERA",
+    "ERA", "ERA", "ERA", "ERA"
+  ),
+  point = c("Yes", "Yes", "No", "No", "No", "No", "No", "No"),
+  b = c(2.22, 0.96, NA, NA, NA, NA, NA, NA),
+  b_lo = c(1.76, 0.58, NA, NA, NA, NA, NA, NA),
+  b_hi = c(2.68, 1.41, NA, NA, NA, NA, NA, NA),
+  f = c(0.39, 1.53, NA, NA, NA, NA, NA, NA),
+  f_lo = c(0.21, 0.65, NA, NA, NA, NA, NA, NA),
+  f_hi = c(0.57, 3.71, NA, NA, NA, NA, NA, NA),
+  xlab = c("SB / SBMSY", "B / BMSY", NA, NA, NA, NA, NA, NA),
+  interval = c("95%", "80%", NA, NA, NA, NA, NA, NA),
+  advice = c(
+    "No increase until the catch series is revised.",
+    "At or below 1,217 t for a 50% chance of the green cell in 10 years.",
+    "Cautious approach. No catch level.",
+    "Retention prohibited. Reduce haulback mortality.",
+    "Cautious approach. No catch level.",
+    "Keep the retention ban.",
+    "Keep the retention ban.",
+    "No catch limit. Improve reporting."
+  ),
+  stringsAsFactors = FALSE
+)
+
+cell_of <- function(b, f) {
+  if (is.na(b) || is.na(f)) return("No point")
+  if (b >= 1 && f <= 1) "Green"
+  else if (b >= 1 && f > 1) "Subject to overfishing"
+  else if (b < 1 && f <= 1) "Overfished"
+  else "Overfished and subject to overfishing"
+}
+
+stocks$cell <- mapply(cell_of, stocks$b, stocks$f)
+stock <- "Blue shark"
+```
+
+## The Kobe framework
+
+The plot has two axes, both scaled so that 1 is the MSY benchmark.
+
+- The horizontal axis is biomass relative to the biomass that produces MSY. In an age-structured assessment this is spawning biomass, $SB/SB_{MSY}$. In a biomass-dynamic assessment it is $B/B_{MSY}$.
+- The vertical axis is fishing mortality relative to the fishing mortality that produces MSY, $F/F_{MSY}$. Above 1, removals exceed replacement.
+
+The axes divide the plot into four cells.
+
+| Biomass | Fishing mortality | Cell | Meaning |
+| --- | --- | --- | --- |
+| At or above the benchmark | At or below the benchmark | Green | The stock can sustain the current removals |
+| At or above the benchmark | Above the benchmark | Subject to overfishing | Removals exceed replacement, and the stock is still above the benchmark |
+| Below the benchmark | At or below the benchmark | Overfished | The stock is below the benchmark, and current removals are at or below replacement |
+| Below the benchmark | Above the benchmark | Overfished and subject to overfishing | Both |
+
+The colour of the median is not the result the summary uses. The result is the share of model outcomes in each cell. For blue shark that share is 100% in the green cell, and both intervals stay on that side of 1. For shortfin mako the median is in the red cell and both intervals cross 1, so the summary reports the weight of evidence across the ensemble.
+
+For tunas, Resolution 15/10 gives a target and a limit. For every shark, the Commission has not adopted reference points or a harvest control rule. MSY on these pages is a benchmark.
+
+```{r table, echo=FALSE}
+shown <- data.frame(
+  Stock = stocks$stock,
+  Tier = stocks$tier,
+  Method = stocks$method,
+  Point = stocks$point,
+  Cell = stocks$cell,
+  Advice = stocks$advice
+)
+knitr::kable(shown, row.names = FALSE)
+```
+
+```{r kobe, echo=FALSE, fig.width=7, fig.height=6}
+assessed <- stocks[stocks$point == "Yes", ]
+assessed$lx <- ifelse(assessed$stock == "Blue shark", assessed$b, assessed$b_lo - 0.12)
+assessed$ly <- ifelse(assessed$stock == "Blue shark", assessed$f_hi + 0.18, assessed$f + 0.55)
+assessed$hj <- ifelse(assessed$stock == "Blue shark", 0.5, 1)
+xmax <- max(3, assessed$b_hi, na.rm = TRUE) * 1.08
+ymax <- max(4, assessed$f_hi, na.rm = TRUE) * 1.08
+quads <- data.frame(
+  xmin = c(0, 1, 0, 1),
+  xmax = c(1, xmax, 1, xmax),
+  ymin = c(1, 1, 0, 0),
+  ymax = c(ymax, ymax, 1, 1),
+  fill = c("#e41a1c", "#fdae61", "#fee08b", "#4daf4a")
+)
+if (requireNamespace("ggplot2", quietly = TRUE)) {
+  ggplot2::ggplot() +
+    ggplot2::geom_rect(
+      data = quads,
+      ggplot2::aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax),
+      fill = quads$fill, colour = NA, alpha = 0.9
+    ) +
+    ggplot2::geom_hline(yintercept = 1, linewidth = 0.3) +
+    ggplot2::geom_vline(xintercept = 1, linewidth = 0.3) +
+    ggplot2::geom_segment(
+      data = assessed,
+      ggplot2::aes(x = b, xend = b, y = f_lo, yend = f_hi),
+      linewidth = 0.6
+    ) +
+    ggplot2::geom_segment(
+      data = assessed,
+      ggplot2::aes(x = b_lo, xend = b_hi, y = f, yend = f),
+      linewidth = 0.6
+    ) +
+    ggplot2::geom_point(
+      data = assessed,
+      ggplot2::aes(b, f),
+      size = ifelse(assessed$stock == stock, 4.5, 3),
+      shape = 21, fill = "white", stroke = 1
+    ) +
+    ggplot2::geom_text(
+      data = assessed,
+      ggplot2::aes(lx, ly, label = stock, hjust = hj),
+      size = 3.6
+    ) +
+    ggplot2::coord_cartesian(xlim = c(0, xmax), ylim = c(0, ymax), expand = FALSE) +
+    ggplot2::labs(
+      title = "Kobe plot, IOTC sharks with an assessment",
+      x = "Biomass / biomass at MSY",
+      y = "F / FMSY"
+    ) +
+    ggplot2::theme_bw(base_size = 13)
+} else {
+  plot(NA, xlim = c(0, xmax), ylim = c(0, ymax), xlab = "Biomass / biomass at MSY", ylab = "F / FMSY", xaxs = "i", yaxs = "i")
+  rect(quads$xmin, quads$ymin, quads$xmax, quads$ymax, col = quads$fill, border = NA)
+  abline(h = 1, v = 1)
+  segments(assessed$b, assessed$f_lo, assessed$b, assessed$f_hi)
+  segments(assessed$b_lo, assessed$f, assessed$b_hi, assessed$f)
+  points(assessed$b, assessed$f, pch = 21, bg = "white", cex = ifelse(assessed$stock == stock, 2, 1.4))
+  text(assessed$lx, assessed$ly, labels = assessed$stock, adj = c(0.5, 0.5))
+}
+```
+
+Blue shark, the larger point, is $SB/SB_{MSY}$ 2.22 (1.76–2.68) and $F/F_{MSY}$ 0.39 (0.21–0.57), a 95% interval, and 100% of the SS3 outcomes are in the green cell. That point is the truth the samples are scored against. Shortfin mako is $B/B_{MSY}$ 0.96 (0.58–1.41) and $F/F_{MSY}$ 1.53 (0.65–3.71), an 80% interval. The bars are published intervals, not a refit, and they are not the same probability. Oceanic whitetip, silky shark, scalloped hammerhead, the two threshers and porbeagle are absent: nothing there can be sampled into a Kobe point.
+
+## SS3, the operating model
+
+SS3 is the age-structured assessment that produced the blue shark point. In class it is used to generate data. It is not run again.
+
+The 2025 run already contains the series a simpler model would be given, from 1950 to 2023. Catch is the lower GAM reconstruction. The indices are the EU-Spain, Taiwan,China and Japan CPUE. Lengths exist for some years and fleets. Life history is inside the model: growth, natural mortality, maturity and steepness, with $F_{MSY}$ about 0.18 and MSY about 30,800 t. Nominal retained catch is about 9,500 t. The reconstruction used in the projection averages 25,877 t a year for 2021–2023.
+
+The run is then sampled in four ways.
+
+| Sample | Given to | Held back |
+| --- | --- | --- |
+| Catch and an index | JABBA | The length composition, and the SS3 age structure |
+| The same catch with dead discards and post-release mortality removed, and the index | JABBA | The deaths that were in the operating-model catch |
+| Lengths, with growth, $M$ and maturity | FLICC | The index, and the biomass trajectory |
+| Life history only | Neither | Catch, index and lengths. The product is the risk-assessment rank |
+
+JABBA receives $r$ and the shape of the production curve as priors. FLICC receives growth, $M$ and maturity as the values that turn a length sample into $F$ and spawning potential. Both are taken from the operating model, so the comparison is the data, not a different biology.
+
+## JABBA, on the catch and the index
+
+JABBA is a Bayesian state-space biomass-dynamic model. Catch and an index become $B/B_{MSY}$ and $F/F_{MSY}$. Lengths do not enter. The fit is a joint posterior, which on the Kobe plot is a cloud of terminal-year points.
+
+The score is whether that cloud covers the blue shark point, and whether the cell is the green cell. One sample drops dead discards and post-release mortality from the catch before JABBA sees it. That is the sample that should move the quadrant. The published shortfin mako assessment is the picture of this estimator when the cloud already crosses both axes: nine models, three biological options times three production shapes, 49.7% of the ensemble in the red cell and 22.2% in the green. For a 50% chance of the green cell in 10 years the catch is at or below 1,217 t, and that figure includes the deaths. The mako numbers are the published advice. They are not a fit to the blue shark sample.
+
+On the real blue shark series, JABBA was the sensitivity and landed in the same cell as SS3. The class sample is the controlled version of that comparison: the truth is known, and the catch can be degraded on purpose.
+
+## FLICC, on the lengths
+
+FLICC is a length-based catch curve. It takes a length frequency by year and gear, and the growth, $M$ and maturity from the operating model. The fit returns selectivity, current fishing mortality, spawning potential, and length-based indicators, plus equilibrium reference points from the per-recruit calculation.
+
+It does not estimate a biomass trajectory. $B/B_{MSY}$ and $F/F_{MSY}$ stay blank, and a Kobe point written from a FLICC fit is scored as unsupported. The score is whether the spawning potential and the selectivity are consistent with the SS3 run the lengths came from. A short length series is the harder sample: a few years, which is the coastal case.
+
+None of the eight IOTC shark summaries is a FLICC status. The method is here because the operating model can generate the lengths, and because a stock that has lengths and little else stops at this product.
+
+## When there is nothing to sample
+
+Oceanic whitetip, scalloped hammerhead, both threshers and porbeagle have no catch series and no index, and no length series that supports FLICC. The 2018 productivity–susceptibility analysis (Murua et al., IOTC–2018–SC21–14) is the analysis those summaries cite. Productivity comes from the life history. Susceptibility is the overlap with the fishery by gear, including post-release mortality. The product is a rank. Shortfin mako is rank 1 for longline, silky shark rank 2, and blue shark rank 10.
+
+Silky shark is the boundary. A preliminary assessment was tried in 2018 and judged too uncertain to use, so the summary stayed with the rank. No catch level is given.
+
+## What the fit is allowed to write
+
+| What was sampled from SS3 | Estimator | What may be written |
+| --- | --- | --- |
+| Catch and an index | JABBA | $B/B_{MSY}$, $F/F_{MSY}$, and the share of the posterior in each cell |
+| Catch with the deaths removed, and an index | JABBA | The same lines. The score is whether the cell moves |
+| Lengths, with growth, $M$ and maturity | FLICC | Selectivity, current $F$, and spawning potential. The Kobe lines stay blank |
+| Life history only | ERA rank | A rank by gear. The Kobe lines stay blank |
+
+```{r card, echo=FALSE, results="asis"}
+samples <- c("catch and index", "catch without discards", "lengths", "life history")
+if (!sample %in% samples) {
+  stop("sample must be one of: ", paste(samples, collapse = ", "), ".")
+}
+given <- c(
+  "catch and index" = "JABBA receives the catch and the index sampled from the blue shark SS3 run. Lengths are held back.",
+  "catch without discards" = "JABBA receives the same index, and a catch from which dead discards and post-release mortality have been removed.",
+  "lengths" = "FLICC receives the length frequency sampled from the blue shark SS3 run, with growth, M and maturity. The index and the biomass trajectory are held back.",
+  "life history" = "There is no sample for JABBA or FLICC. Productivity and susceptibility are scored, and the product is a rank."
+)
+writes <- c(
+  "catch and index" = "JABBA may write a Kobe point. It is scored by whether the cloud covers SB/SBMSY 2.22 and F/FMSY 0.39, in the green cell.",
+  "catch without discards" = "JABBA may write a Kobe point. The score is whether that point leaves the green cell once the deaths are missing from the catch.",
+  "lengths" = "FLICC may write selectivity, current F and spawning potential. A Kobe point from this fit is unsupported.",
+  "life history" = "The summary leaves B/BMSY and F/FMSY blank. Oceanic whitetip is the published case: status unknown, and the measure is the retention ban."
+)
+cat("\n\n## The sample in the marked block\n\n")
+cat(given[[sample]], "\n\n", sep = "")
+cat(writes[[sample]], "\n", sep = "")
+```
+
+Set `sample` to `catch without discards`, `lengths`, or `life history` and render again.

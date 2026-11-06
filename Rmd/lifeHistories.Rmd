@@ -1,0 +1,328 @@
+---
+title: "Indonesian Sharks"
+subtitle: "Life Histories"
+author: 
+date: "`r format(Sys.time(),'%d %B,%Y')`"
+output: 
+  html_document:
+    toc: true
+    number_sections: true
+    pandoc_args:
+      - --number-sections
+      - --number-offset=0
+vignette: >
+  %\VignetteIndexEntry{ICES Categories}  
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
+editor_options: 
+  markdown: 
+  wrap: 72
+---
+
+
+```{r, eval=FALSE, echo=FALSE}
+setwd("C:/active/IWT")
+```
+
+```{r, knitr, eval=TRUE, echo=FALSE, warning=FALSE, cache=FALSE}
+library(knitr)
+
+opts_chunk$set(comment   =NA, 
+               warning   =FALSE, 
+               message   =FALSE, 
+               error     =FALSE, 
+               echo      =FALSE, 
+               cache     =TRUE, 
+               cache.path="cache/priors/",
+               fig.path  ="figs/priors-",
+               fig.width =10,
+               fig.height=12,
+               dev       ="png")
+
+iFig=0
+iTab=0
+```
+
+# Installation
+
+```{r, fishbase, eval=FALSE, echo=TRUE}
+# Install FLCore and ggplotFL from the FLR project repository
+install.packages(c("FLCore", "ggplotFL"), repos = "http://flr-project.org/R")
+
+# Alternatively, install the latest development versions from GitHub:
+remotes::install_github("flr/FLCore")
+remotes::install_github("flr/ggplotFL")
+
+# Install other packages from CRAN if needed
+# install.packages(c("ggplot2", "ggpubr", "GGally", "plyr", "dplyr", "reshape", "readr", "kableExtra", "rfishbase"))
+
+## Problem with Fishbase upgrades
+#install.packages("https://cran.r-project.org/src/contrib/Archive/rfishbase/rfishbase_3.0.0.1.tar.gz", 
+#                 repos=NULL, type='source')
+# get archived version
+install.packages("rfishbase_3.1.10.tar.gz",repos=NULL,type="source")
+
+
+install.packages("/media/laurie/NAME/rfishbase_3.1.10.tar.gz",repos=NULL,type="source")
+
+
+library(remotes)
+remotes::install_github("Henning-Winker/SPMpriors")
+
+remotes::install_github("James-Thorson-NOAA/FishLife")re
+```
+
+
+```{r, pkgs}
+library(FLCore)
+library(FLBRP)
+
+library(ggplot2)
+library(ggpubr)
+library(GGally)
+
+library(plyr)
+library(dplyr)
+library(reshape)
+
+library(rfishbase)
+library(FishLife)
+library(SPMpriors)
+
+library(rfishbase)
+library(SPMpriors)
+library(FishLife)
+
+library(kableExtra)
+```
+
+```{r, themes}
+theme_set(theme(
+  strip.background=element_rect(fill="grey95"),
+  strip.text =element_text(size=20),
+  axis.text.y=element_text(size=16),
+  axis.text.x=element_text(size=16,angle=45),
+  legend.position="bottom",
+  legend.text=element_text(size=16),
+  panel.grid.minor=element_blank()))
+```
+
+
+```{r, source}
+getTraits<-function(Class        ="predictive", 
+                    Order        ="predictive", 
+                    Family       ="predictive", 
+                    Genus        ="predictive", 
+                    Species      ="predictive",
+                    partial_match=!TRUE,
+                    add_ancestors=!TRUE, 
+                    Database     =FishLife::FishBase_and_RAM, 
+                    ParentChild_gz=Database$ParentChild_gz ){
+
+  taxa=suppressMessages(Search_species(Class,Order,Family,Genus,Species,add_ancestors,Database,ParentChild_gz)$match_taxonomy)
+  
+  if(partial_match==TRUE)  Which=grep( taxa, ParentChild_gz[,'ChildName'])
+  if(partial_match==FALSE) Which=which(taxa==ParentChild_gz[,'ChildName'])
+  if( length(Which)!=1 ) stop( paste0("'Taxon' ",taxa," input matches more or less than one element") )
+  
+  Cov_gjj       =Database$Cov_gvv
+  Mean_gj       =Database$beta_gv
+  ParentChild_gz=Database$ParentChild_gz
+  Y_ij          =Database$Y_ij
+  g_i           =Database$g_i
+  
+  nms      =c("linf","k","winf","amax","amat","m","l50","temperature","lnvar","rho",
+              "lnmasps","lnmargsd","s","logits","fmsym","fmsy","lnr","r","lhg","g")
+  mu       =Mean_gj[Which,]
+  names(mu)=nms
+  mu       =FLPar(mu)
+  
+  cov      =Cov_gjj[Which,,]
+  cov      =as(array(cov,c(dim(cov),1),dimnames=list(params=nms,params=nms,iter=1)),"FLPar")
+  
+  FLPars(mu=mu,cov=cov)}
+
+
+shapeFn<-function(r,fmsy){
+  m=r/fmsy
+  shape=m^-(1/(m-1))
+  shape}
+```
+
+```{r, data}
+df= c("Shovel head",                "Glaucostegus typus",
+      "Blue shark" ,                "Prionace glauca",	
+      "Oceanic whitetip shark" ,    "Carcharhinus longimanus",	 	
+      "Scalloped hammerhead shark" ,"Sphyrna lewini",	
+      "Shortfin mako shark" ,       "Isurus oxyrinchus",
+      "Silky shark",                "Carcharhinus falciformis",
+      "Bigeye thresher shark" ,     "Alopias superciliosus",	 	
+      "Pelagic thresher shark" ,    "Alopias pelagicus", 	
+      "Porbeagle shark" ,           "Lamna nasus")
+
+spp=data.frame(spp =df[seq(2,18,2)],
+               name=df[seq(1,18,2)])
+spp=transform(spp,Genus  =substr(spp,1,regexpr(" ", spp)-1),
+                  Species=substr(spp,  regexpr(" ", spp)+1,nchar(spp)))
+
+save(spp,file="../data/spp.RData")
+```
+
+```{r, lh}
+lhs=mdply(spp[,c("Genus","Species")], function(Genus,Species) { 
+  
+  
+  if (Species=="spp.")   
+      rtn=suppressMessages(try(getTraits(Genus=Genus)))
+  else     
+      rtn=tryCatch(suppressMessages(getTraits(Genus=Genus,Species=Species)))
+  
+  if ("try-error"%in%is(rtn)) return(NULL) else return(t(rtn[[1]]))})
+
+lhs$shape=shapeFn(lhs$r,exp(lhs$fmsy))
+
+save(lhs,file="../data/lhs.RData")
+```
+
+# Priors
+
+**Table `r iTab=iTab+1; iTab`** Pella-Tomlinson priors from FishBase.
+
+
+```{r, lhs-tab}
+# Select and order columns to display
+lhs=transform(lhs,fmsy=exp(fmsy),linf=exp(linf),k=exp(k), m=exp(m), l50=exp(l50),
+                    amax=exp(amax), amat=exp(amat)) %>%
+  select(Genus, Species, k, linf, l50, amax, amat, m, r, fmsy, shape)
+
+# Set number of decimal places for each column:
+# (Genus, Species = character; linf, k, winf, amax, amat, m, l50, fmsy, r, shape = numeric)
+# Example: 2 decimals for most, 3 for 'k', 0 for 'amax', etc.
+digits_vec <- c(NA, NA, 2, 1, 1, 0, 0, 2, 2, 2, 2, 3)
+
+# Create the table
+lhs %>%
+  kable(
+    booktabs = TRUE,
+    digits = digits_vec,
+    caption = "Key life history parameters for Red Sea species"
+  ) %>% 
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = FALSE,
+    position = "center")
+```
+
+
+```{r, pts, fig.height=8, fig.width=8}
+colLabs=c("r","M","F[MSY]","l[50]/L[infinty]","B[MSY]/K")
+
+lhs=transform(lhs,l50linf=l50/linf) 
+ggpairs(lhs[,c("m","r","fmsy","l50linf","shape")], 
+        columnLabels = colLabs,
+        lower = list(
+          continuous = wrap("smooth_lm",  # Remove method="lm" 
+                            se = FALSE, 
+                            color = "red", 
+                            alpha = 0.8,
+                            size = 1.0)
+        ),
+        diag = list(continuous = wrap("barDiag", 
+                                      fill = "white",
+                                      color = "black",
+                                      bins = 20)),
+        upper = list(continuous = wrap("cor", 
+                                       size = 5,     
+                                       color = "black")),
+        labeller = label_parsed) +
+  theme_bw() +
+  theme(text = element_text(size = 12),    
+        axis.text = element_text(size = 10), 
+        panel.grid.minor = element_blank(), 
+        legend.position = "bottom")+
+  labs(title="Production function and life history parameters")
+
+```
+
+**Figure `r iFig=iFig+1; iFig`** Pella-Tomlinson priors from FishBase.
+
+```{r, fig.height=10,fig.width=8}
+source("C:/active/flr/SPMpriors/R/flmvn_traits.R") 
+ 
+priors=ddply(spp,.(Genus,Species), with,
+             flmvn_traits(Genus=Genus,Species=Species,Plot=FALSE)$mvnstk)
+
+priors=transform(priors,doubling=log(2)/r)
+
+ggplot(priors[,c("Genus","Species","M","sigR","r","doubling")])+
+  geom_density(aes(M))+
+  facet_grid(Genus+Species~.,scale="free")+
+  scale_x_continuous(limit=c(0,0.5))+
+  labs(title="Natural Mortality")
+```
+
+**Figure `r iFig=iFig+1; iFig`** M priors from FishBase.
+
+
+```{r, fig.height=10,fig.width=8}
+source("C:/active/flr/SPMpriors/R/flmvn_traits.R")
+  
+priors=ddply(spp,.(Genus,Species), with,
+             flmvn_traits(Genus=Genus,Species=Species,Plot=FALSE)$mvnstk)
+
+priors=transform(priors,doubling=log(2)/r)
+
+ggplot(priors[,c("Genus","Species","M","sigR","r","doubling")])+
+  geom_density(aes(r))+
+  facet_grid(Genus+Species~.,scale="free")+
+  scale_x_continuous(limit=c(0,0.1))+
+  labs(title="Population growth rate (r)")
+```
+
+**Figure `r iFig=iFig+1; iFig`** r priors from FishBase.
+
+```{r, lbi}
+library(spatstat)
+library(mydas)
+library(diags)
+
+load("P:/rfmo/iotc/ss3/blueshark/ss.RData")
+
+lenInd=mydas:::lenInd
+lbi=diags:::lbi(ss$lendbase,linf=ss$Growth_Parameters$Linf)  
+```
+
+```{r, len-2, fig.height=8}
+linf=ss$Growth_Parameters$Linf
+
+lns=mutate(ss$lendbase,
+                yr =(Yr%/%10)*10,
+                dec=Yr-yr,
+                Sexes=as.character(Sexes))
+  
+ggplot(lns)+    
+  geom_histogram(aes(Bin,weight=Obs,fill=Sexes),binwidth=5,alpha=0.3,position = "identity")+
+  geom_vline(aes(xintercept=x,col=Sexes),data=data.frame(x=c(180,275),Sexes=unique(lns$Sexes)))+
+  facet_grid(dec~yr)+
+  xlab("")+ylab("Relative Number")+
+  scale_fill_manual("Gender",  values=c("blue","red"),labels=c("Male","Female"))+
+  scale_colour_manual("Gender",values=c("blue","red"),labels=c("Male","Female"))+
+  scale_y_continuous(limits=c(0,0.35))+
+  theme_bw()+
+  labs(title="Length Compositions: Blue Shark")
+```
+
+**Figure `r iFig=iFig+1; iFig`** Length compositions, length at 50% maturity is indicated.
+
+```{r, , fig.height=6,fig.width=10}
+library(FLCandy) 
+
+lens=FLCandy:::lenSS(ss)
+
+lens[[2]]=lens[[2]][,-(1:3)]*10
+
+plotLengths(lens[[2]])+
+ geom_vline(aes(xintercept=median), colour="red" ,linewidth=1)+
+ geom_vline(aes(xintercept=data),   colour="blue",linewidth=1,
+            data=as.data.frame(lmean(lens[[2]])))
+```
