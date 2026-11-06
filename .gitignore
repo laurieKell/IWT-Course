@@ -1,37 +1,14 @@
-# R / knitr
+# R / RStudio
+.Rproj.user
 .Rhistory
 .RData
 .Ruserdata
-*.Rproj.user
-Rmd/cache/
+
+# knitr
 **/cache/
-
-# Logs and scratch
-*.log
-tmp-*.R
-ss3.log
-fmin.log
-
-# Publish / deploy
-rsconnect/
-
-# Instructor / local only
-jabba3-course.md
-ss3_model_inventory.csv
-scripts/
-IWT_PRESENTATION DECK_WIP*
-sessions/~$*
-
-# Large Nicola working exports (keep grouper SS inputs + PDFs)
-nicola/*.html
-nicola/*.png
-nicola/*.pptx
-nicola/Essex*
 
 # OS / editor
 Thumbs.db
 Desktop.ini
 .DS_Store
-*.swp
 *~
-.Rproj.user
